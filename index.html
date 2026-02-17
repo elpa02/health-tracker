@@ -1,0 +1,2323 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Tracker - Phase 1</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .tab-active { border-bottom: 3px solid #3b82f6; color: #3b82f6; }
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+        .modal.show { display: flex; align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 2rem; border-radius: 0.5rem; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; }
+        .alert-success { background: #d4edda; border-left: 4px solid #28a745; }
+        .alert-warning { background: #fff3cd; border-left: 4px solid #ffc107; }
+        .alert-danger { background: #f8d7da; border-left: 4px solid #dc3545; }
+        .stock-ok { color: #28a745; }
+        .stock-low { color: #ffc107; }
+        .stock-critical { color: #dc3545; }
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0,0,0,0);
+            white-space: nowrap;
+            border-width: 0;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4">
+            <div class="flex items-center justify-between flex-wrap gap-4">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">🏥 Health Tracker <span class="text-sm text-blue-600">v2.0 COMPLETE</span></h1>
+                    <p class="text-sm text-gray-600">Πλήρης Διαχείριση Συμπληρωμάτων & Διατροφής</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div id="alertBadges"></div>
+                    <div class="bg-white rounded-lg shadow p-4" style="min-width:320px">
+                        <h3 class="text-sm font-semibold text-gray-700 mb-3">ΙΣΟΖΥΓΙΟ ΗΜΕΡΑΣ</h3>
+                        <div class="grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                                <div class="text-gray-600 text-xs">Θερμίδες</div>
+                                <div class="font-bold text-base" id="balanceCal">0/0</div>
+                                <div class="text-xs" id="balanceCalDiff">-</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-600 text-xs">Πρωτεΐνη</div>
+                                <div class="font-bold text-base" id="balancePro">0/0</div>
+                                <div class="text-xs" id="balanceProDiff">-</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-600 text-xs" id="balanceCarbLabel">Υδατάνθρακες</div>
+                                <div class="font-bold text-base" id="balanceCarb">0/0</div>
+                                <div class="text-xs" id="balanceCarbDiff">-</div>
+                            </div>
+                            <div>
+                                <div class="text-gray-600 text-xs">Λίπος</div>
+                                <div class="font-bold text-base" id="balanceFat">0/0</div>
+                                <div class="text-xs" id="balanceFatDiff">-</div>
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="syncData()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                        🔄
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <nav class="bg-white border-b sticky top-[88px] z-40">
+        <div class="max-w-7xl mx-auto px-4 overflow-x-auto">
+            <div class="flex">
+                <button onclick="showTab('dashboard')" class="tab px-4 py-3 font-medium text-gray-600 hover:text-blue-600 whitespace-nowrap tab-active" data-tab="dashboard">📊 Dashboard</button>
+                <button onclick="showTab('supplements')" class="tab px-4 py-3 font-medium text-gray-600 hover:text-blue-600 whitespace-nowrap" data-tab="supplements">💊 Συμπληρώματα</button>
+                <button onclick="showTab('entry')" class="tab px-4 py-3 font-medium text-gray-600 hover:text-blue-600 whitespace-nowrap" data-tab="entry">🍽️ Καταγραφή</button>
+                <button onclick="showTab('exercise')" class="tab px-4 py-3 font-medium text-gray-600 hover:text-blue-600 whitespace-nowrap" data-tab="exercise">🏃 Άσκηση</button>
+                <button onclick="showTab('metrics')" class="tab px-4 py-3 font-medium text-gray-600 hover:text-blue-600 whitespace-nowrap" data-tab="metrics">🩸 Μετρήσεις</button>
+                <button onclick="showTab('library')" class="tab px-4 py-3 font-medium text-gray-600 hover:text-blue-600 whitespace-nowrap" data-tab="library">📚 Βιβλιοθήκη</button>
+                <button onclick="showTab('stats')" class="tab px-4 py-3 font-medium text-gray-600 hover:text-blue-600 whitespace-nowrap" data-tab="stats">📈 Στατιστικά</button>
+                <button onclick="showTab('settings')" class="tab px-4 py-3 font-medium text-gray-600 hover:text-blue-600 whitespace-nowrap" data-tab="settings">⚙️ Ρυθμίσεις</button>
+                <button onclick="showTab('bloodtests')" class="tab px-4 py-3 font-medium text-gray-600 hover:text-blue-600 whitespace-nowrap" data-tab="bloodtests">🩸 Αιματολογικές</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 py-6">
+
+        <!-- DASHBOARD -->
+        <div id="tab-dashboard" class="tab-content">
+            <div class="bg-white rounded-lg shadow p-4 mb-6">
+                <div class="flex items-center justify-between">
+                    <button onclick="changeDate(-1)" class="p-2 hover:bg-gray-100 rounded">◀</button>
+                    <input type="date" id="dashDate" class="text-lg font-semibold border-0" onchange="loadDashboard()">
+                    <button onclick="changeDate(1)" class="p-2 hover:bg-gray-100 rounded">▶</button>
+                </div>
+            </div>
+
+            <!-- Alerts Section -->
+            <div id="dashAlerts" class="mb-6"></div>
+
+            <!-- Macros -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-sm text-gray-600 mb-2">Θερμίδες</h3>
+                    <div class="text-3xl font-bold" id="dashCals">0</div>
+                    <div class="text-sm text-gray-500">/ <span id="goalCals">0</span></div>
+                    <div class="mt-2 bg-gray-200 rounded-full h-2">
+                        <div id="barCals" class="bg-blue-600 h-2 rounded-full transition-all" style="width:0%"></div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-sm text-gray-600 mb-2">Πρωτεΐνη</h3>
+                    <div class="text-3xl font-bold text-green-600" id="dashPro">0</div>
+                    <div class="text-sm text-gray-500">/ <span id="goalPro">0</span>g</div>
+                    <div class="mt-2 bg-gray-200 rounded-full h-2">
+                        <div id="barPro" class="bg-green-600 h-2 rounded-full transition-all" style="width:0%"></div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-sm text-gray-600 mb-2" id="labelCarbs">Υδατάνθρακες</h3>
+                    <div class="text-3xl font-bold text-orange-600" id="dashCarbs">0</div>
+                    <div class="text-sm text-gray-500">/ <span id="goalCarbs">0</span>g</div>
+                    <div class="mt-2 bg-gray-200 rounded-full h-2">
+                        <div id="barCarbs" class="bg-orange-600 h-2 rounded-full transition-all" style="width:0%"></div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-sm text-gray-600 mb-2">Λίπος</h3>
+                    <div class="text-3xl font-bold text-purple-600" id="dashFat">0</div>
+                    <div class="text-sm text-gray-500">/ <span id="goalFat">0</span>g</div>
+                    <div class="mt-2 bg-gray-200 rounded-full h-2">
+                        <div id="barFat" class="bg-purple-600 h-2 rounded-full transition-all" style="width:0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timeline -->
+            <div class="bg-white rounded-lg shadow p-6 mb-6">
+                <h2 class="text-xl font-bold mb-4">Timeline Ημέρας</h2>
+                <div id="timeline" class="space-y-3"></div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold mb-4">Γλυκόζη Σήμερα</h3>
+                    <div id="todayGlucose"></div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold mb-4">Άσκηση Σήμερα</h3>
+                    <div id="todayExercise"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SUPPLEMENTS DASHBOARD -->
+        <div id="tab-supplements" class="tab-content hidden">
+            <div class="grid grid-cols-1 gap-6">
+                
+                <!-- Summary Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <div class="text-sm text-gray-600">Σύνολο Συμπληρωμάτων</div>
+                        <div class="text-2xl font-bold text-blue-600" id="suppCount">0</div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <div class="text-sm text-gray-600">Χαμηλό Απόθεμα</div>
+                        <div class="text-2xl font-bold text-orange-600" id="lowStockCount">0</div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <div class="text-sm text-gray-600">Out of Stock</div>
+                        <div class="text-2xl font-bold text-red-600" id="outStockCount">0</div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <div class="text-sm text-gray-600">Λήγουν Σύντομα</div>
+                        <div class="text-2xl font-bold text-yellow-600" id="expiringCount">0</div>
+                    </div>
+                </div>
+
+                <!-- Supplements List -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h2 class="text-xl font-bold mb-4">💊 Τα Συμπληρώματά Μου</h2>
+                    <div id="suppDashboardList"></div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ENTRY (FOOD/SUPPLEMENT TOGGLE) -->
+        <div id="tab-entry" class="tab-content hidden">
+            <div class="max-w-2xl mx-auto">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h2 class="text-2xl font-bold mb-6">🍽️ Καταγραφή</h2>
+                    
+                    <!-- Toggle -->
+                    <div class="flex gap-2 mb-6">
+                        <button id="btnMealMode" onclick="setEntryMode('meal')" class="flex-1 py-3 rounded-lg font-semibold bg-blue-600 text-white">
+                            🍽️ Γεύμα
+                        </button>
+                        <button id="btnSuppMode" onclick="setEntryMode('supplement')" class="flex-1 py-3 rounded-lg font-semibold bg-gray-200 text-gray-700">
+                            💊 Συμπλήρωμα
+                        </button>
+                    </div>
+
+                    <!-- Form -->
+                    <form id="entryForm" class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Ημερομηνία</label>
+                                <input type="date" id="entryDate" class="w-full border rounded-lg px-3 py-2" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Ώρα</label>
+                                <input type="time" id="entryTime" class="w-full border rounded-lg px-3 py-2" required>
+                            </div>
+                        </div>
+
+                        <!-- MEAL FIELDS -->
+                        <div id="mealFields">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Τροφίμο</label>
+                                <select id="foodSelect" class="w-full border rounded-lg px-3 py-2">
+                                    <option value="">-- Επιλογή --</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Ποσότητα (g)</label>
+                                <input type="number" id="foodQty" class="w-full border rounded-lg px-3 py-2" min="1">
+                            </div>
+                        </div>
+
+                        <!-- SUPPLEMENT FIELDS -->
+                        <div id="suppFields" class="hidden">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Συμπλήρωμα</label>
+                                <select id="suppSelect" class="w-full border rounded-lg px-3 py-2">
+                                    <option value="">-- Επιλογή --</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Αριθμός Δόσεων</label>
+                                <input type="number" id="suppDoses" class="w-full border rounded-lg px-3 py-2" min="1" value="1">
+                            </div>
+                        </div>
+
+                        <!-- Preview -->
+                        <div id="entryPreview" class="hidden"></div>
+
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-semibold">
+                            ✅ Καταχώρηση
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- EXERCISE -->
+        <div id="tab-exercise" class="tab-content hidden">
+            <div class="max-w-2xl mx-auto">
+                <div class="bg-white rounded-lg shadow p-6 mb-6">
+                    <h2 class="text-2xl font-bold mb-6">🏃 Καταγραφή Άσκησης</h2>
+                    <form id="exerciseForm" class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Ημερομηνία</label>
+                                <input type="date" id="exDate" class="w-full border rounded-lg px-3 py-2" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Ώρα</label>
+                                <input type="time" id="exTime" class="w-full border rounded-lg px-3 py-2" required>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Άσκηση (από Βιβλιοθήκη)</label>
+                            <select id="exTemplate" class="w-full border rounded-lg px-3 py-2" onchange="loadExerciseTemplate()" required>
+                                <option value="">-- Επιλογή --</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Διάρκεια (λεπτά)</label>
+                                <input type="number" id="exDuration" class="w-full border rounded-lg px-3 py-2" min="1" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Θερμίδες</label>
+                                <input type="number" id="exCals" class="w-full border rounded-lg px-3 py-2" min="0" required>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Ένταση</label>
+                            <select id="exIntensity" class="w-full border rounded-lg px-3 py-2">
+                                <option>Low</option>
+                                <option>Medium</option>
+                                <option>High</option>
+                            </select>
+                        </div>
+                        <div id="exTemplateInfo" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                            <div><strong>Τύπος:</strong> <span id="exTypeInfo"></span></div>
+                            <div class="text-xs text-gray-600 mt-1">Μπορείς να προσαρμόσεις τη διάρκεια και τις θερμίδες</div>
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-semibold">✅ Καταχώρηση</button>
+                    </form>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold mb-4">Ιστορικό</h3>
+                    <div id="exHistory"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- METRICS -->
+        <div id="tab-metrics" class="tab-content hidden">
+            <div class="max-w-2xl mx-auto">
+                <div class="bg-white rounded-lg shadow p-6 mb-6">
+                    <h2 class="text-2xl font-bold mb-6">🩸 Μετρήσεις</h2>
+                    <form id="metricForm" class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><input type="date" id="metricDate" class="w-full border rounded-lg px-3 py-2" required></div>
+                            <div><input type="time" id="metricTime" class="w-full border rounded-lg px-3 py-2" required></div>
+                        </div>
+                        <div><select id="metricType" class="w-full border rounded-lg px-3 py-2"><option>Glucose</option><option>Ketones</option></select></div>
+                        <div><input type="number" step="0.1" id="metricValue" placeholder="Τιμή" class="w-full border rounded-lg px-3 py-2" required></div>
+                        <div><select id="metricCondition" class="w-full border rounded-lg px-3 py-2"><option>Fasting</option><option>Post_meal</option><option>Pre_workout</option><option>Post_workout</option><option>Before_sleep</option><option>Random</option></select></div>
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-semibold">✅ Καταχώρηση</button>
+                    </form>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold mb-4">Ιστορικό</h3>
+                    <div id="metricHistory"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- LIBRARY -->
+        <div id="tab-library" class="tab-content hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold">📚 Τροφίμα</h2>
+                        <button onclick="showAddFoodModal()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm">+ Νέο</button>
+                    </div>
+                    <input type="text" id="searchFood" placeholder="Αναζήτηση..." class="w-full border rounded-lg px-3 py-2 mb-4" oninput="filterFoods()">
+                    <div id="foodsList" class="space-y-2 max-h-96 overflow-y-auto"></div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold">💊 Συμπληρώματα</h2>
+                        <button onclick="showAddSuppModal()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm">+ Νέο</button>
+                    </div>
+                    <input type="text" id="searchSupp" placeholder="Αναζήτηση..." class="w-full border rounded-lg px-3 py-2 mb-4" oninput="filterSupps()">
+                    <div id="suppsList" class="space-y-2 max-h-96 overflow-y-auto"></div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold">🏃 Ασκήσεις</h2>
+                        <button onclick="showAddExerciseTemplateModal()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm">+ Νέο</button>
+                    </div>
+                    <input type="text" id="searchEx" placeholder="Αναζήτηση..." class="w-full border rounded-lg px-3 py-2 mb-4" oninput="filterExercises()">
+                    <div id="exercisesList" class="space-y-2 max-h-96 overflow-y-auto"></div>
+                </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STATS -->
+        <div id="tab-stats" class="tab-content hidden">
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-2xl font-bold mb-6">📈 Στατιστικά</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Από:</label>
+                        <input type="date" id="statsFrom" class="w-full border rounded-lg px-3 py-2">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Έως:</label>
+                        <input type="date" id="statsTo" class="w-full border rounded-lg px-3 py-2">
+                    </div>
+                    <div class="flex items-end">
+                        <button onclick="loadStats()" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">Φόρτωση</button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-blue-50 p-4 rounded-lg">
+                        <div class="text-sm text-gray-600">Μέση Γλυκόζη</div>
+                        <div class="text-2xl font-bold" id="avgGlucose">-</div>
+                    </div>
+                    <div class="bg-green-50 p-4 rounded-lg">
+                        <div class="text-sm text-gray-600">Εκτιμώμενη HbA1c</div>
+                        <div class="text-2xl font-bold" id="estHbA1c">-</div>
+                        <div class="text-xs text-gray-500 mt-1">(Βάσει επιλεγμένων ημερομηνιών)</div>
+                    </div>
+                    <div class="bg-orange-50 p-4 rounded-lg">
+                        <div class="text-sm text-gray-600">Μέσες Θερμίδες/Ημέρα</div>
+                        <div class="text-2xl font-bold" id="avgCals">-</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SETTINGS -->
+        <div id="tab-settings" class="tab-content hidden">
+            <div class="max-w-2xl mx-auto">
+                <div class="bg-white rounded-lg shadow p-6 mb-6">
+                    <h3 class="text-lg font-semibold mb-4">🔗 Σύνδεση</h3>
+                    <input type="text" id="scriptUrl" placeholder="Apps Script URL" class="w-full border rounded-lg px-3 py-2 mb-3 font-mono text-xs">
+                    <div class="flex gap-2">
+                        <button onclick="saveScriptUrl()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">💾 Αποθήκευση</button>
+                        <button onclick="testConnection()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm">🔌 Δοκιμή</button>
+                    </div>
+                    <div id="connStatus" class="mt-2 text-sm"></div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold mb-4">👤 User Settings</h3>
+                    <form id="settingsForm" class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Φύλο</label>
+                                <select id="setGender" class="w-full border rounded-lg px-3 py-2"><option>Male</option><option>Female</option></select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Ηλικία (έτη)</label>
+                                <input type="number" id="setAge" class="w-full border rounded-lg px-3 py-2">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Ύψος (cm)</label>
+                                <input type="number" id="setHeight" class="w-full border rounded-lg px-3 py-2">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Βάρος (kg)</label>
+                                <input type="number" step="0.1" id="setWeight" class="w-full border rounded-lg px-3 py-2">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Body Fat % (προαιρετικό - για ακριβέστερο TDEE)</label>
+                            <input type="number" step="0.1" id="setBodyFat" class="w-full border rounded-lg px-3 py-2" placeholder="π.χ. 18">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Επίπεδο Δραστηριότητας</label>
+                            <select id="setActivity" class="w-full border rounded-lg px-3 py-2"><option value="1.2">Καθιστική</option><option value="1.375">Ελαφριά</option><option value="1.55">Μέτρια</option><option value="1.725">Έντονη</option></select>
+                        </div>
+                        <div><button type="button" onclick="calculateBMR()" class="text-blue-600 hover:underline text-sm">⚡ Υπολογισμός BMR</button></div>
+                        <div class="bg-blue-50 p-4 rounded-lg"><div class="grid grid-cols-2"><div>BMR: <span id="calcBMR" class="font-bold">-</span></div><div>TDEE: <span id="calcTDEE" class="font-bold">-</span></div></div></div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Ημερήσιος Στόχος Θερμίδων (kcal)</label>
+                            <input type="number" id="setCalGoal" class="w-full border rounded-lg px-3 py-2">
+                        </div>
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                            <div class="text-sm font-medium text-gray-700 mb-2">Πολλαπλασιαστής Πρωτεΐνης</div>
+                            <div class="text-3xl font-bold text-green-600" id="displayProMult">-</div>
+                            <div class="text-xs text-gray-600 mt-1">g/kg σωματικού βάρους</div>
+                            <div class="text-xs text-gray-500 mt-2">Υπολογίζεται αυτόματα από την επιλογή TDEE</div>
+                        </div>
+                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                            <h4 class="font-semibold mb-3">Αναλογίες Macros (%)</h4>
+                            <div class="grid grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-xs font-medium mb-1">Υδατάνθρακες %</label>
+                                    <input type="number" id="setCarbPct" class="w-full border rounded px-2 py-1 text-sm" value="40">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium mb-1">Πρωτεΐνη %</label>
+                                    <input type="number" id="setProPct" class="w-full border rounded px-2 py-1 text-sm" value="40">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium mb-1">Λίπος %</label>
+                                    <input type="number" id="setFatPct" class="w-full border rounded px-2 py-1 text-sm" value="20">
+                                </div>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-2">Σύνολο: <span id="totalPct">100</span>%</div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Όριο Καθαρών Υδατανθράκων - Net Carb Limit (g) για Keto</label>
+                            <input type="number" id="setNetCarb" class="w-full border rounded-lg px-3 py-2" value="30">
+                        </div>
+                        
+                        <!-- Keto Mode Toggle -->
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <h4 class="font-semibold mb-3">Τύπος Διατροφής</h4>
+                            <div class="flex items-center justify-between">
+                                <div class="text-sm">
+                                    <div class="font-medium">Ketogenic Diet (Keto)</div>
+                                    <div class="text-xs text-gray-600">Παρακολούθηση καθαρών υδατανθράκων (Net Carbs)</div>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="ketoToggle" class="sr-only peer" onchange="toggleKeto()">
+                                    <div class="w-14 h-7 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-blue-600"></div>
+                                    <span class="ml-3 text-sm font-medium text-gray-700" id="ketoLabel">OFF</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-semibold">💾 Αποθήκευση</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- BLOOD TESTS -->
+        <div id="tab-bloodtests" class="tab-content hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <!-- Test Sessions List -->
+                <div class="bg-white rounded-lg shadow p-6 lg:col-span-2">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold">🩸 Αιματολογικές Εξετάσεις</h2>
+                        <button onclick="showAddTestModal()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm">+ Νέα Εξέταση</button>
+                    </div>
+                    <div id="testSessionsList"></div>
+                </div>
+                
+                <!-- Quick Stats -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold mb-4">Στατιστικά</h3>
+                    <div id="bloodTestStats">
+                        <div class="text-sm text-gray-600">Σύνολο εξετάσεων: <span class="font-bold" id="totalTests">0</span></div>
+                        <div class="text-sm text-gray-600 mt-2">Markers tracked: <span class="font-bold" id="totalMarkers">0</span></div>
+                    </div>
+                </div>
+                
+                <!-- Results View -->
+                <div id="testResultsView" class="bg-white rounded-lg shadow p-6 lg:col-span-3 hidden">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold" id="resultTestTitle">Test Results</h3>
+                        <button onclick="closeTestResults()" class="text-gray-600 hover:text-gray-800">✕ Κλείσιμο</button>
+                    </div>
+                    <div id="resultMarkersTable"></div>
+                </div>
+                
+            </div>
+        </div>
+
+    </main>
+
+    <div id="modalContainer"></div>
+
+    <script>
+        let SCRIPT_URL = localStorage.getItem('scriptUrl') || '';
+        let KETO_MODE = localStorage.getItem('ketoMode') === 'true';
+        let ENTRY_MODE = 'meal';
+        
+        const appData = {
+            foods: [],
+            supplements: [],
+            dailyLog: [],
+            userSettings: {},
+            metrics: [],
+            exercises: [],
+            exerciseTemplates: [],
+            bloodTestHeaders: [],
+            bloodTestResults: []
+        };
+
+        let goals = {
+            calories: 2519,
+            protein: 156,
+            carbsTotal: 250,
+            carbsNet: 30,
+            fat: 84
+        };
+
+        async function init() {
+            const today = new Date().toISOString().split('T')[0];
+            const now = new Date().toTimeString().slice(0,5);
+            
+            document.getElementById('dashDate').value = today;
+            document.getElementById('entryDate').value = today;
+            document.getElementById('exDate').value = today;
+            document.getElementById('metricDate').value = today;
+            document.getElementById('entryTime').value = now;
+            document.getElementById('exTime').value = now;
+            document.getElementById('metricTime').value = now;
+            
+            document.getElementById('ketoToggle').checked = KETO_MODE;
+            document.getElementById('ketoLabel').textContent = KETO_MODE ? 'ON (Keto)' : 'OFF (Normal)';
+            
+            const weekAgo = new Date();
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            document.getElementById('statsFrom').value = weekAgo.toISOString().split('T')[0];
+            document.getElementById('statsTo').value = today;
+            
+            if (SCRIPT_URL) {
+                document.getElementById('scriptUrl').value = SCRIPT_URL;
+                await loadAllData();
+            } else {
+                notify('⚠️ Ρύθμισε Apps Script URL στις Ρυθμίσεις', 'warning');
+            }
+            
+            setupEventListeners();
+            updateCarbsLabel();
+        }
+
+        function setupEventListeners() {
+            document.getElementById('foodSelect').addEventListener('change', updatePreview);
+            document.getElementById('foodQty').addEventListener('input', updatePreview);
+            document.getElementById('suppSelect').addEventListener('change', updatePreview);
+            document.getElementById('suppDoses').addEventListener('input', updatePreview);
+            document.getElementById('entryForm').addEventListener('submit', submitEntry);
+            document.getElementById('exerciseForm').addEventListener('submit', submitExercise);
+            document.getElementById('metricForm').addEventListener('submit', submitMetric);
+            document.getElementById('settingsForm').addEventListener('submit', submitSettings);
+        }
+
+        async function apiCall(action, params = {}) {
+            if (!SCRIPT_URL) throw new Error('Ρύθμισε Apps Script URL');
+            
+            const url = new URL(SCRIPT_URL);
+            url.searchParams.append('action', action);
+            Object.keys(params).forEach(key => {
+                url.searchParams.append(key, typeof params[key] === 'object' ? JSON.stringify(params[key]) : params[key]);
+            });
+            
+            const res = await fetch(url.toString());
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return await res.json();
+        }
+
+        async function loadAllData() {
+            try {
+                showLoading('Φόρτωση...');
+                const data = await apiCall('getAllData');
+                
+                Object.assign(appData, {
+                    foods: data.foods || [],
+                    supplements: data.supplements || [],
+                    dailyLog: data.dailyLog || [],
+                    userSettings: data.userSettings || {},
+                    metrics: data.metrics || [],
+                    exercises: data.exercises || [],
+                    bloodTestHeaders: data.bloodTestHeaders || [],
+                    bloodTestResults: data.bloodTestResults || []
+                });
+                
+                if (appData.userSettings.calorieGoal) {
+                    goals = {
+                        calories: appData.userSettings.calorieGoal,
+                        protein: appData.userSettings.proteinGoal,
+                        carbsTotal: appData.userSettings.carbGoal || 250,
+                        carbsNet: appData.userSettings.netCarbLimit || 30,
+                        fat: appData.userSettings.fatGoal || 0
+                    };
+                }
+                
+                populateSelects();
+                loadDashboard();
+                renderLibraries();
+                loadUserSettings();
+                checkSupplementAlerts();
+                
+                hideLoading();
+                notify('✅ Δεδομένα φορτώθηκαν!', 'success');
+            } catch (e) {
+                hideLoading();
+                notify('❌ ' + e.message, 'error');
+            }
+        }
+
+        async function syncData() {
+            await loadAllData();
+        }
+
+        function populateSelects() {
+            document.getElementById('foodSelect').innerHTML = '<option value="">-- Επιλογή --</option>' +
+                appData.foods.map(f => `<option value="${f.id}">${f.name}</option>`).join('');
+            document.getElementById('suppSelect').innerHTML = '<option value="">-- Επιλογή --</option>' +
+                appData.supplements.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+            
+            // Populate exercise templates
+            if (appData.exerciseTemplates.length === 0) {
+                appData.exerciseTemplates = [
+                    {id: genId(), name: 'Περπάτημα', type: 'Cardio', duration: 30, calories: 150, intensity: 'Medium'},
+                    {id: genId(), name: 'Τρέξιμο', type: 'Cardio', duration: 30, calories: 300, intensity: 'High'},
+                    {id: genId(), name: 'Ποδήλατο', type: 'Cardio', duration: 30, calories: 250, intensity: 'Medium'},
+                    {id: genId(), name: 'Βάρη', type: 'Strength', duration: 45, calories: 200, intensity: 'High'},
+                    {id: genId(), name: 'Yoga', type: 'Yoga', duration: 60, calories: 180, intensity: 'Low'}
+                ];
+            }
+            document.getElementById('exTemplate').innerHTML = '<option value="">-- Επιλογή --</option>' +
+                appData.exerciseTemplates.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+        }
+
+        function loadExerciseTemplate() {
+            const templateId = document.getElementById('exTemplate').value;
+            if (!templateId) {
+                document.getElementById('exTemplateInfo').classList.add('hidden');
+                return;
+            }
+            
+            const template = appData.exerciseTemplates.find(e => e.id === templateId);
+            if (!template) return;
+            
+            document.getElementById('exDuration').value = template.duration;
+            document.getElementById('exCals').value = template.calories;
+            document.getElementById('exIntensity').value = template.intensity;
+            document.getElementById('exTypeInfo').textContent = template.type;
+            document.getElementById('exTemplateInfo').classList.remove('hidden');
+        }
+
+        function setEntryMode(mode) {
+            ENTRY_MODE = mode;
+            document.getElementById('btnMealMode').className = mode === 'meal' ? 
+                'flex-1 py-3 rounded-lg font-semibold bg-blue-600 text-white' :
+                'flex-1 py-3 rounded-lg font-semibold bg-gray-200 text-gray-700';
+            document.getElementById('btnSuppMode').className = mode === 'supplement' ?
+                'flex-1 py-3 rounded-lg font-semibold bg-purple-600 text-white' :
+                'flex-1 py-3 rounded-lg font-semibold bg-gray-200 text-gray-700';
+            document.getElementById('mealFields').style.display = mode === 'meal' ? 'block' : 'none';
+            document.getElementById('suppFields').style.display = mode === 'supplement' ? 'block' : 'none';
+            document.getElementById('entryPreview').classList.add('hidden');
+        }
+
+        function updatePreview() {
+            if (ENTRY_MODE === 'meal') {
+                const foodId = document.getElementById('foodSelect').value;
+                const qty = parseFloat(document.getElementById('foodQty').value) || 0;
+                if (!foodId || !qty) return;
+                
+                const food = appData.foods.find(f => f.id === foodId);
+                if (!food) return;
+                
+                const factor = qty / 100;
+                const cal = Math.round(food.calories * factor);
+                const pro = Math.round(food.protein * factor);
+                const carb = Math.round(food.carbs * factor);
+                const fat = Math.round(food.fat * factor);
+                const net = Math.max(0, Math.round((food.carbs - (food.fiber || 0)) * factor));
+                
+                const alerts = checkLiveAlerts({ calories: cal, protein: pro, carbs: KETO_MODE ? net : carb, fat: fat });
+                
+                document.getElementById('entryPreview').className = `p-4 rounded-lg border ${alerts.class}`;
+                document.getElementById('entryPreview').innerHTML = `
+                    <div class="font-semibold mb-2">${alerts.message}</div>
+                    <div class="grid grid-cols-2 gap-2 text-sm">
+                        <div>Cal: <span class="font-bold">${cal}</span></div>
+                        <div>P: <span class="font-bold">${pro}</span>g</div>
+                        <div>C: <span class="font-bold">${carb}</span>g</div>
+                        <div>F: <span class="font-bold">${fat}</span>g</div>
+                        <div class="col-span-2 text-orange-600 font-bold">Net C: ${net}g</div>
+                    </div>
+                `;
+                document.getElementById('entryPreview').classList.remove('hidden');
+            } else {
+                const suppId = document.getElementById('suppSelect').value;
+                const doses = parseFloat(document.getElementById('suppDoses').value) || 1;
+                if (!suppId) return;
+                
+                const supp = appData.supplements.find(s => s.id === suppId);
+                if (!supp) return;
+                
+                const cal = Math.round((supp.caloriesPerDose || 0) * doses);
+                const pro = Math.round((supp.proteinPerDose || 0) * doses);
+                const stockAfter = supp.currentStock - doses;
+                const stockClass = stockAfter < 5 ? 'stock-critical' : stockAfter < 15 ? 'stock-low' : 'stock-ok';
+                
+                document.getElementById('entryPreview').className = 'p-4 rounded-lg border bg-purple-50 border-purple-200';
+                document.getElementById('entryPreview').innerHTML = `
+                    <div class="font-semibold mb-2">💊 ${supp.name}</div>
+                    <div class="text-sm">
+                        <div>Δόσεις: <span class="font-bold">${doses}</span></div>
+                        ${cal > 0 ? `<div>Θερμίδες: <span class="font-bold">${cal} kcal</span></div>` : ''}
+                        ${pro > 0 ? `<div>Πρωτεΐνη: <span class="font-bold">${pro}g</span></div>` : ''}
+                        <div class="${stockClass}">Απόθεμα μετά: <span class="font-bold">${stockAfter}</span> δόσεις</div>
+                    </div>
+                `;
+                document.getElementById('entryPreview').classList.remove('hidden');
+            }
+        }
+
+        function checkLiveAlerts(intake) {
+            const date = document.getElementById('entryDate').value;
+            const dayLogs = appData.dailyLog.filter(l => l.date === date);
+            
+            let totals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+            dayLogs.forEach(l => {
+                totals.calories += l.calories || 0;
+                totals.protein += l.protein || 0;
+                totals.carbs += KETO_MODE ? Math.max(0, (l.carbs || 0) - (l.fiber || 0)) : (l.carbs || 0);
+                totals.fat += l.fat || 0;
+            });
+            
+            totals.calories += intake.calories;
+            totals.protein += intake.protein;
+            totals.carbs += intake.carbs;
+            totals.fat += intake.fat;
+            
+            const carbGoal = KETO_MODE ? goals.carbsNet : goals.carbsTotal;
+            
+            const calPct = (totals.calories / goals.calories) * 100;
+            const proPct = (totals.protein / goals.protein) * 100;
+            const carbPct = (totals.carbs / carbGoal) * 100;
+            const fatPct = (totals.fat / goals.fat) * 100;
+            
+            const maxPct = Math.max(calPct, proPct, carbPct, fatPct);
+            
+            if (maxPct > 100) {
+                let msgs = [];
+                if (calPct > 100) msgs.push(`Θερμίδες +${Math.round(totals.calories - goals.calories)}`);
+                if (proPct > 100) msgs.push(`Πρωτεΐνη +${Math.round(totals.protein - goals.protein)}g`);
+                if (carbPct > 100) msgs.push(`Carbs +${Math.round(totals.carbs - carbGoal)}g`);
+                if (fatPct > 100) msgs.push(`Λίπος +${Math.round(totals.fat - goals.fat)}g`);
+                return { class: 'alert-danger', message: '🔴 ΥΠΕΡΒΑΣΗ: ' + msgs.join(', ') };
+            } else if (maxPct > 80) {
+                return { class: 'alert-warning', message: '🟡 Προσοχή: Πλησιάζεις τα όρια' };
+            } else {
+                return { class: 'alert-success', message: '🟢 Εντός ορίων' };
+            }
+        }
+
+        async function submitEntry(e) {
+            e.preventDefault();
+            try {
+                if (ENTRY_MODE === 'meal') {
+                    const food = appData.foods.find(f => f.id === document.getElementById('foodSelect').value);
+                    const qty = parseFloat(document.getElementById('foodQty').value);
+                    const factor = qty / 100;
+                    
+                    const data = {
+                        id: genId(),
+                        date: document.getElementById('entryDate').value,
+                        time: document.getElementById('entryTime').value,
+                        type: 'Food',
+                        itemId: food.id,
+                        quantity: qty,
+                        calories: food.calories * factor,
+                        protein: food.protein * factor,
+                        carbs: food.carbs * factor,
+                        fat: food.fat * factor,
+                        fiber: (food.fiber || 0) * factor,
+                        saturatedFat: (food.saturatedFat || 0) * factor
+                    };
+                    
+                    showLoading('Αποθήκευση...');
+                    await apiCall('addMeal', { data });
+                    appData.dailyLog.push(data);
+                } else {
+                    const supp = appData.supplements.find(s => s.id === document.getElementById('suppSelect').value);
+                    const doses = parseFloat(document.getElementById('suppDoses').value);
+                    
+                    const data = {
+                        id: genId(),
+                        date: document.getElementById('entryDate').value,
+                        time: document.getElementById('entryTime').value,
+                        suppId: supp.id,
+                        doses: doses,
+                        calories: (supp.caloriesPerDose || 0) * doses,
+                        protein: (supp.proteinPerDose || 0) * doses
+                    };
+                    
+                    showLoading('Αποθήκευση...');
+                    await apiCall('addSupplementIntake', { data });
+                    appData.dailyLog.push({
+                        id: data.id,
+                        date: data.date,
+                        time: data.time,
+                        type: 'Supplement',
+                        itemId: data.suppId,
+                        quantity: doses,
+                        calories: data.calories,
+                        protein: data.protein,
+                        carbs: 0,
+                        fat: 0,
+                        fiber: 0
+                    });
+                    
+                    // Update local stock
+                    supp.currentStock -= doses;
+                }
+                
+                hideLoading();
+                notify('✅ Καταχωρήθηκε!', 'success');
+                document.getElementById('entryForm').reset();
+                document.getElementById('entryPreview').classList.add('hidden');
+                loadDashboard();
+                renderLibraries();
+            } catch (e) {
+                hideLoading();
+                notify('❌ ' + e.message, 'error');
+            }
+        }
+
+        async function submitExercise(e) {
+            e.preventDefault();
+            try {
+                const templateId = document.getElementById('exTemplate').value;
+                if (!templateId) {
+                    notify('⚠️ Επίλεξε μια άσκηση', 'warning');
+                    return;
+                }
+                
+                const template = appData.exerciseTemplates.find(e => e.id === templateId);
+                if (!template) return;
+                
+                const data = {
+                    id: genId(),
+                    date: document.getElementById('exDate').value,
+                    time: document.getElementById('exTime').value,
+                    type: template.type,
+                    name: template.name,
+                    duration: parseFloat(document.getElementById('exDuration').value),
+                    calories: parseFloat(document.getElementById('exCals').value),
+                    intensity: document.getElementById('exIntensity').value,
+                    notes: ''
+                };
+                
+                showLoading('Αποθήκευση...');
+                await apiCall('addExercise', { data });
+                appData.exercises.push(data);
+                hideLoading();
+                
+                notify('✅ Άσκηση καταχωρήθηκε!', 'success');
+                document.getElementById('exerciseForm').reset();
+                document.getElementById('exTemplateInfo').classList.add('hidden');
+                loadExerciseHistory();
+                loadDashboard();
+            } catch (e) {
+                hideLoading();
+                notify('❌ ' + e.message, 'error');
+            }
+        }
+
+        async function submitMetric(e) {
+            e.preventDefault();
+            try {
+                const data = {
+                    id: genId(),
+                    date: document.getElementById('metricDate').value,
+                    time: document.getElementById('metricTime').value,
+                    type: document.getElementById('metricType').value,
+                    value: parseFloat(document.getElementById('metricValue').value),
+                    condition: document.getElementById('metricCondition').value
+                };
+                
+                showLoading('Αποθήκευση...');
+                await apiCall('addMetric', { data });
+                appData.metrics.push(data);
+                hideLoading();
+                
+                notify('✅ Μέτρηση καταχωρήθηκε!', 'success');
+                document.getElementById('metricForm').reset();
+                loadMetricHistory();
+                loadDashboard();
+            } catch (e) {
+                hideLoading();
+                notify('❌ ' + e.message, 'error');
+            }
+        }
+
+        function changeDate(days) {
+            const input = document.getElementById('dashDate');
+            const d = new Date(input.value);
+            d.setDate(d.getDate() + days);
+            input.value = d.toISOString().split('T')[0];
+            loadDashboard();
+        }
+
+        function loadDashboard() {
+            const date = document.getElementById('dashDate').value;
+            const logs = appData.dailyLog.filter(l => l.date === date);
+            const exs = appData.exercises.filter(e => e.date === date);
+            const metrics = appData.metrics.filter(m => m.date === date);
+            
+            let totals = { calories: 0, protein: 0, carbsTotal: 0, carbsNet: 0, fat: 0 };
+            let caloriesBurned = 0;
+            
+            logs.forEach(l => {
+                totals.calories += l.calories || 0;
+                totals.protein += l.protein || 0;
+                totals.carbsTotal += l.carbs || 0;
+                totals.carbsNet += Math.max(0, (l.carbs || 0) - (l.fiber || 0));
+                totals.fat += l.fat || 0;
+            });
+            
+            exs.forEach(e => caloriesBurned += e.calories || 0);
+            
+            updateMacroCards(totals);
+            updateCalorieBalance(totals.calories, caloriesBurned);
+            updateBalanceDashboard();
+            renderDayAlerts(totals);
+            renderTimeline(logs, exs, metrics);
+            renderTodayGlucose(metrics);
+            renderTodayExercise(exs);
+        }
+
+        function updateMacroCards(totals) {
+            const carbValue = KETO_MODE ? totals.carbsNet : totals.carbsTotal;
+            const carbGoal = KETO_MODE ? goals.carbsNet : goals.carbsTotal;
+            
+            document.getElementById('dashCals').textContent = Math.round(totals.calories);
+            document.getElementById('goalCals').textContent = goals.calories;
+            document.getElementById('barCals').style.width = Math.min(100, (totals.calories / goals.calories) * 100) + '%';
+            
+            document.getElementById('dashPro').textContent = Math.round(totals.protein);
+            document.getElementById('goalPro').textContent = goals.protein;
+            document.getElementById('barPro').style.width = Math.min(100, (totals.protein / goals.protein) * 100) + '%';
+            
+            document.getElementById('dashCarbs').textContent = Math.round(carbValue);
+            document.getElementById('goalCarbs').textContent = carbGoal;
+            document.getElementById('barCarbs').style.width = Math.min(100, (carbValue / carbGoal) * 100) + '%';
+            
+            document.getElementById('dashFat').textContent = Math.round(totals.fat);
+            document.getElementById('goalFat').textContent = goals.fat;
+            document.getElementById('barFat').style.width = Math.min(100, (totals.fat / goals.fat) * 100) + '%';
+        }
+
+        function updateCalorieBalance(calsIn, calsOut) {
+            const balance = calsIn - calsOut;
+            const elem = document.getElementById('calorieBalance');
+            if (elem) {
+                elem.textContent = balance > 0 ? `+${balance}` : balance;
+                elem.className = balance > 0 ? 'text-xl font-bold text-green-600' : 'text-xl font-bold text-red-600';
+            }
+        }
+
+        function updateBalanceDashboard() {
+            const today = document.getElementById('dashDate').value;
+            const todayLog = appData.dailyLog.filter(e => e.date === today);
+            
+            const totals = todayLog.reduce((acc, entry) => {
+                acc.calories += entry.calories || 0;
+                acc.protein += entry.protein || 0;
+                acc.carbs += entry.carbs || 0;
+                acc.fat += entry.fat || 0;
+                acc.fiber += entry.fiber || 0;
+                return acc;
+            }, {calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0});
+            
+            const netCarbs = totals.carbs - totals.fiber;
+            
+            document.getElementById('balanceCal').textContent = `${Math.round(totals.calories)}/${goals.calories}`;
+            document.getElementById('balancePro').textContent = `${Math.round(totals.protein)}g/${goals.protein}g`;
+            
+            if (KETO_MODE) {
+                document.getElementById('balanceCarbLabel').textContent = 'Net Carbs';
+                document.getElementById('balanceCarb').textContent = `${Math.round(netCarbs)}g/${goals.carbsNet}g`;
+            } else {
+                document.getElementById('balanceCarbLabel').textContent = 'Υδατάνθρακες';
+                document.getElementById('balanceCarb').textContent = `${Math.round(totals.carbs)}g/${goals.carbsTotal}g`;
+            }
+            
+            document.getElementById('balanceFat').textContent = `${Math.round(totals.fat)}g/${goals.fat}g`;
+            
+            const calDiff = totals.calories - goals.calories;
+            const proDiff = totals.protein - goals.protein;
+            const carbDiff = KETO_MODE ? netCarbs - goals.carbsNet : totals.carbs - goals.carbsTotal;
+            const fatDiff = totals.fat - goals.fat;
+            
+            document.getElementById('balanceCalDiff').textContent = (calDiff >= 0 ? '+' : '') + Math.round(calDiff);
+            document.getElementById('balanceProDiff').textContent = (proDiff >= 0 ? '+' : '') + Math.round(proDiff) + 'g';
+            document.getElementById('balanceCarbDiff').textContent = (carbDiff >= 0 ? '+' : '') + Math.round(carbDiff) + 'g';
+            document.getElementById('balanceFatDiff').textContent = (fatDiff >= 0 ? '+' : '') + Math.round(fatDiff) + 'g';
+            
+            // Color coding
+            document.getElementById('balanceCalDiff').className = calDiff > 100 ? 'text-xs text-red-600' : calDiff < -100 ? 'text-xs text-orange-600' : 'text-xs text-green-600';
+            document.getElementById('balanceProDiff').className = proDiff > 20 ? 'text-xs text-red-600' : proDiff < -20 ? 'text-xs text-orange-600' : 'text-xs text-green-600';
+            document.getElementById('balanceCarbDiff').className = carbDiff > 20 ? 'text-xs text-red-600' : carbDiff < -20 ? 'text-xs text-orange-600' : 'text-xs text-green-600';
+            document.getElementById('balanceFatDiff').className = fatDiff > 10 ? 'text-xs text-red-600' : fatDiff < -10 ? 'text-xs text-orange-600' : 'text-xs text-green-600';
+        }
+
+        function renderDayAlerts(totals) {
+            const carbValue = KETO_MODE ? totals.carbsNet : totals.carbsTotal;
+            const carbGoal = KETO_MODE ? goals.carbsNet : goals.carbsTotal;
+            
+            let alerts = [];
+            if (totals.calories > goals.calories) alerts.push(`<div class="alert-danger p-3 rounded mb-2">🔴 Θερμίδες: ${Math.round(totals.calories)}/${goals.calories} (+${Math.round(totals.calories - goals.calories)})</div>`);
+            if (totals.protein > goals.protein) alerts.push(`<div class="alert-danger p-3 rounded mb-2">🔴 Πρωτεΐνη: ${Math.round(totals.protein)}/${goals.protein} (+${Math.round(totals.protein - goals.protein)}g)</div>`);
+            if (carbValue > carbGoal) alerts.push(`<div class="alert-danger p-3 rounded mb-2">🔴 Carbs: ${Math.round(carbValue)}/${carbGoal} (+${Math.round(carbValue - carbGoal)}g)</div>`);
+            if (totals.fat > goals.fat) alerts.push(`<div class="alert-danger p-3 rounded mb-2">🔴 Λίπος: ${Math.round(totals.fat)}/${goals.fat} (+${Math.round(totals.fat - goals.fat)}g)</div>`);
+            
+            if (alerts.length === 0) {
+                alerts.push('<div class="alert-success p-3 rounded">✅ Όλα εντός ορίων!</div>');
+            }
+            
+            document.getElementById('dashAlerts').innerHTML = alerts.join('');
+        }
+
+        function renderTimeline(logs, exs, metrics) {
+            const events = [
+                ...logs.map(l => ({ ...l, type: 'entry', time: l.time })),
+                ...exs.map(e => ({ ...e, type: 'exercise', time: e.time })),
+                ...metrics.map(m => ({ ...m, type: 'metric', time: m.time }))
+            ].sort((a, b) => a.time.localeCompare(b.time));
+            
+            const html = events.map(e => {
+                if (e.type === 'entry') {
+                    if (e.type === 'Supplement') {
+                        const supp = appData.supplements.find(s => s.id === e.itemId);
+                        return `<div class="flex items-center gap-3 p-3 bg-purple-50 border-l-4 border-purple-500 rounded">
+                            <div class="text-2xl">💊</div>
+                            <div class="flex-1">
+                                <div class="font-semibold">${e.time} - ${supp ? supp.name : 'Supplement'}</div>
+                                <div class="text-sm text-gray-600">${e.quantity} δόσεις${e.protein > 0 ? ` | P: ${Math.round(e.protein)}g` : ''}</div>
+                            </div>
+                        </div>`;
+                    } else {
+                        const food = appData.foods.find(f => f.id === e.itemId);
+                        const netC = Math.max(0, (e.carbs || 0) - (e.fiber || 0));
+                        return `<div class="flex items-center gap-3 p-3 bg-blue-50 border-l-4 border-blue-500 rounded">
+                            <div class="text-2xl">🍽️</div>
+                            <div class="flex-1">
+                                <div class="font-semibold">${e.time} - ${food ? food.name : 'Food'}</div>
+                                <div class="text-sm text-gray-600">
+                                    Cal: ${Math.round(e.calories)} | C: ${Math.round(e.carbs)}g${KETO_MODE ? ` (Net: ${netC}g)` : ''} | P: ${Math.round(e.protein)}g | F: ${Math.round(e.fat)}g
+                                </div>
+                            </div>
+                        </div>`;
+                    }
+                } else if (e.type === 'exercise') {
+                    return `<div class="flex items-center gap-3 p-3 bg-purple-50 border-l-4 border-purple-500 rounded">
+                        <div class="text-2xl">🏃</div>
+                        <div class="flex-1">
+                            <div class="font-semibold">${e.time} - ${e.name}</div>
+                            <div class="text-sm text-gray-600">-${e.calories} kcal | ${e.duration} λεπτά | ${e.intensity}</div>
+                        </div>
+                    </div>`;
+                } else {
+                    const color = e.value > 140 ? 'red' : e.value < 70 ? 'orange' : 'green';
+                    return `<div class="flex items-center gap-3 p-3 bg-${color}-50 border-l-4 border-${color}-500 rounded">
+                        <div class="text-2xl">🩸</div>
+                        <div class="flex-1">
+                            <div class="font-semibold">${e.time} - ${e.type === 'Glucose' ? 'Γλυκόζη' : 'Κετόνες'}: ${e.value}</div>
+                            <div class="text-sm text-gray-600">${e.condition}</div>
+                        </div>
+                    </div>`;
+                }
+            }).join('');
+            
+            document.getElementById('timeline').innerHTML = html || '<p class="text-gray-500 text-center py-8">Δεν υπάρχουν δεδομένα</p>';
+        }
+
+        function renderTodayGlucose(metrics) {
+            const glucose = metrics.filter(m => m.type === 'Glucose').sort((a, b) => b.time.localeCompare(a.time));
+            const html = glucose.map(g => `
+                <div class="flex justify-between p-2 bg-gray-50 rounded mb-2">
+                    <span class="text-sm">${g.time} - ${g.condition}</span>
+                    <span class="font-bold ${g.value > 140 ? 'text-red-600' : g.value < 70 ? 'text-orange-600' : 'text-green-600'}">${g.value}</span>
+                </div>
+            `).join('');
+            document.getElementById('todayGlucose').innerHTML = html || '<p class="text-gray-500 text-sm">Δεν υπάρχουν</p>';
+        }
+
+        function renderTodayExercise(exs) {
+            const html = exs.map(e => `
+                <div class="flex justify-between p-2 bg-gray-50 rounded mb-2">
+                    <div><div class="font-semibold text-sm">${e.name}</div><div class="text-xs text-gray-600">${e.duration} λεπτά</div></div>
+                    <div class="text-red-600 font-bold">-${e.calories}</div>
+                </div>
+            `).join('');
+            document.getElementById('todayExercise').innerHTML = html || '<p class="text-gray-500 text-sm">Δεν υπάρχει</p>';
+        }
+
+        function loadExerciseHistory() {
+            const html = appData.exercises.slice().reverse().slice(0, 10).map(e => `
+                <div class="p-3 bg-gray-50 rounded mb-2">
+                    <div class="flex justify-between">
+                        <div><div class="font-semibold">${e.name}</div><div class="text-sm text-gray-600">${e.date} ${e.time}</div></div>
+                        <div class="text-right"><div class="font-bold text-red-600">-${e.calories} kcal</div><div class="text-sm text-gray-600">${e.duration} λεπτά</div></div>
+                    </div>
+                </div>
+            `).join('');
+            document.getElementById('exHistory').innerHTML = html || '<p class="text-gray-500">Δεν υπάρχουν</p>';
+        }
+
+        function loadMetricHistory() {
+            const html = appData.metrics.slice().reverse().slice(0, 20).map(m => {
+                const color = m.type === 'Glucose' && m.value > 140 ? 'text-red-600' : m.type === 'Glucose' && m.value < 70 ? 'text-orange-600' : 'text-green-600';
+                return `
+                    <div class="flex justify-between p-3 bg-gray-50 rounded mb-2">
+                        <div><div class="font-semibold">${m.type === 'Glucose' ? '🩸 Γλυκόζη' : '🔬 Κετόνες'}</div><div class="text-sm text-gray-600">${m.date} ${m.time} - ${m.condition}</div></div>
+                        <div class="text-right"><div class="font-bold text-lg ${color}">${m.value}</div></div>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('metricHistory').innerHTML = html || '<p class="text-gray-500">Δεν υπάρχουν</p>';
+        }
+
+        function renderLibraries() {
+            renderFoodsList();
+            renderSuppsList();
+            renderExercisesList();
+        }
+
+        function renderFoodsList() {
+            const html = appData.foods.map(f => `
+                <div class="p-3 bg-gray-50 rounded hover:bg-gray-100">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <div class="font-semibold">${f.name}</div>
+                            <div class="text-xs text-gray-600">Per 100g: ${f.calories} kcal | P: ${f.protein}g | C: ${f.carbs}g | F: ${f.fat}g</div>
+                        </div>
+                        <button onclick="editFood('${f.id}')" class="text-blue-600 text-xs hover:underline ml-2">Edit</button>
+                    </div>
+                </div>
+            `).join('');
+            document.getElementById('foodsList').innerHTML = html || '<p class="text-gray-500">Δεν υπάρχουν</p>';
+        }
+
+        function renderSuppsList() {
+            const html = appData.supplements.map(s => {
+                const stockClass = s.currentStock < 5 ? 'stock-critical' : s.currentStock < 15 ? 'stock-low' : 'stock-ok';
+                const stockIcon = s.currentStock < 5 ? '🔴' : s.currentStock < 15 ? '🟡' : '🟢';
+                const daysLeft = Math.floor(s.currentStock / 1); // Assuming 1 dose per day
+                return `
+                    <div class="p-3 bg-gray-50 rounded hover:bg-gray-100 border-l-4 ${s.currentStock < 5 ? 'border-red-500' : s.currentStock < 15 ? 'border-yellow-500' : 'border-green-500'}">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <div class="font-semibold">${s.name}</div>
+                                <div class="text-xs text-gray-600">${s.manufacturer || '-'} | ${s.type}</div>
+                                ${s.proteinPerDose > 0 ? `<div class="text-xs text-green-600">Πρωτεΐνη: ${s.proteinPerDose}g/δόση</div>` : ''}
+                                ${s.caloriesPerDose > 0 ? `<div class="text-xs text-blue-600">Θερμίδες: ${s.caloriesPerDose} kcal/δόση</div>` : ''}
+                                <button onclick="editSupplement('${s.id}')" class="text-blue-600 text-xs hover:underline mt-1">Edit</button>
+                            </div>
+                            <div class="text-right ml-3">
+                                <div class="${stockClass} font-bold text-lg">${stockIcon} ${s.currentStock}</div>
+                                <div class="text-xs text-gray-500">δόσεις</div>
+                                <div class="text-xs text-gray-500">~${daysLeft} ημέρες</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('suppsList').innerHTML = html || '<p class="text-gray-500">Δεν υπάρχουν</p>';
+        }
+
+        function filterFoods() {
+            const search = document.getElementById('searchFood').value.toLowerCase();
+            const filtered = appData.foods.filter(f => f.name.toLowerCase().includes(search));
+            const html = filtered.map(f => `
+                <div class="p-3 bg-gray-50 rounded hover:bg-gray-100">
+                    <div class="font-semibold">${f.name}</div>
+                    <div class="text-xs text-gray-600">Per 100g: ${f.calories} kcal | P: ${f.protein}g | C: ${f.carbs}g | F: ${f.fat}g</div>
+                </div>
+            `).join('');
+            document.getElementById('foodsList').innerHTML = html;
+        }
+
+        function filterSupps() {
+            const search = document.getElementById('searchSupp').value.toLowerCase();
+            const filtered = appData.supplements.filter(s => s.name.toLowerCase().includes(search));
+            const html = filtered.map(s => {
+                const stockClass = s.currentStock < 5 ? 'stock-critical' : s.currentStock < 15 ? 'stock-low' : 'stock-ok';
+                return `
+                    <div class="p-3 bg-gray-50 rounded hover:bg-gray-100">
+                        <div class="flex justify-between">
+                            <div><div class="font-semibold">${s.name}</div><div class="text-xs text-gray-600">${s.manufacturer} | ${s.type}</div></div>
+                            <div class="${stockClass} font-bold">${s.currentStock} δόσεις</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('suppsList').innerHTML = html;
+        }
+
+        function checkSupplementAlerts() {
+            const lowStock = appData.supplements.filter(s => s.currentStock < 15);
+            const expiringSoon = appData.supplements.filter(s => {
+                if (!s.bestBefore) return false;
+                const exp = new Date(s.bestBefore);
+                const today = new Date();
+                const diff = (exp - today) / (1000 * 60 * 60 * 24);
+                return diff < 30 && diff > 0;
+            });
+            
+            let badges = '';
+            if (lowStock.length > 0) badges += `<span class="bg-red-500 text-white text-xs px-2 py-1 rounded-full">${lowStock.length} 📦</span>`;
+            if (expiringSoon.length > 0) badges += `<span class="bg-yellow-500 text-white text-xs px-2 py-1 rounded-full ml-1">${expiringSoon.length} ⏰</span>`;
+            
+            document.getElementById('alertBadges').innerHTML = badges;
+        }
+
+        function renderExercisesList() {
+            // Initialize with some default templates if empty
+            if (appData.exerciseTemplates.length === 0) {
+                appData.exerciseTemplates = [
+                    {id: genId(), name: 'Περπάτημα', type: 'Cardio', duration: 30, calories: 150, intensity: 'Medium'},
+                    {id: genId(), name: 'Τρέξιμο', type: 'Cardio', duration: 30, calories: 300, intensity: 'High'},
+                    {id: genId(), name: 'Ποδήλατο', type: 'Cardio', duration: 30, calories: 250, intensity: 'Medium'},
+                    {id: genId(), name: 'Βάρη', type: 'Strength', duration: 45, calories: 200, intensity: 'High'},
+                    {id: genId(), name: 'Yoga', type: 'Yoga', duration: 60, calories: 180, intensity: 'Low'}
+                ];
+            }
+            
+            const html = appData.exerciseTemplates.map(e => `
+                <div class="p-3 bg-gray-50 rounded hover:bg-gray-100">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <div class="font-semibold">${e.name}</div>
+                            <div class="text-xs text-gray-600">${e.type} | ${e.duration} λεπτά | ~${e.calories} kcal</div>
+                            <button onclick="editExerciseTemplate('${e.id}')" class="text-blue-600 text-xs hover:underline mt-1">Edit</button>
+                        </div>
+                        <button onclick="quickAddExercise('${e.id}')" class="text-green-600 text-xs hover:underline">+ Γρήγορη Προσθήκη</button>
+                    </div>
+                </div>
+            `).join('');
+            document.getElementById('exercisesList').innerHTML = html || '<p class="text-gray-500">Δεν υπάρχουν</p>';
+        }
+
+        function editExerciseTemplate(templateId) {
+            const template = appData.exerciseTemplates.find(e => e.id === templateId);
+            if (!template) return;
+
+            const modal = createModal('Επεξεργασία Template Άσκησης', `
+                <form id="editExTemplateForm" class="space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Όνομα</label>
+                        <input type="text" id="editExName" value="${template.name}" class="w-full border rounded px-3 py-2" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Τύπος</label>
+                        <select id="editExType" class="w-full border rounded px-3 py-2">
+                            <option ${template.type === 'Cardio' ? 'selected' : ''}>Cardio</option>
+                            <option ${template.type === 'Strength' ? 'selected' : ''}>Strength</option>
+                            <option ${template.type === 'HIIT' ? 'selected' : ''}>HIIT</option>
+                            <option ${template.type === 'Yoga' ? 'selected' : ''}>Yoga</option>
+                            <option ${template.type === 'Walking' ? 'selected' : ''}>Walking</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Διάρκεια (λεπτά)</label>
+                        <input type="number" id="editExDur" value="${template.duration}" class="w-full border rounded px-3 py-2">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Θερμίδες</label>
+                        <input type="number" id="editExCal" value="${template.calories}" class="w-full border rounded px-3 py-2">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Ένταση</label>
+                        <select id="editExInt" class="w-full border rounded px-3 py-2">
+                            <option ${template.intensity === 'Low' ? 'selected' : ''}>Low</option>
+                            <option ${template.intensity === 'Medium' ? 'selected' : ''}>Medium</option>
+                            <option ${template.intensity === 'High' ? 'selected' : ''}>High</option>
+                        </select>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="submit" class="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Ενημέρωση</button>
+                        <button type="button" onclick="closeModal()" class="flex-1 bg-gray-300 text-gray-700 py-2 rounded hover:bg-gray-400">Ακύρωση</button>
+                    </div>
+                </form>
+            `);
+
+            document.getElementById('editExTemplateForm').onsubmit = (e) => {
+                e.preventDefault();
+                template.name = document.getElementById('editExName').value;
+                template.type = document.getElementById('editExType').value;
+                template.duration = parseFloat(document.getElementById('editExDur').value);
+                template.calories = parseFloat(document.getElementById('editExCal').value);
+                template.intensity = document.getElementById('editExInt').value;
+                
+                closeModal();
+                notify('✅ Template ενημερώθηκε!', 'success');
+                renderExercisesList();
+            };
+        }
+
+        function filterExercises() {
+            const search = document.getElementById('searchEx').value.toLowerCase();
+            const filtered = appData.exerciseTemplates.filter(e => e.name.toLowerCase().includes(search));
+            const html = filtered.map(e => `
+                <div class="p-3 bg-gray-50 rounded hover:bg-gray-100">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <div class="font-semibold">${e.name}</div>
+                            <div class="text-xs text-gray-600">${e.type} | ${e.duration} λεπτά | ~${e.calories} kcal</div>
+                        </div>
+                        <button onclick="quickAddExercise('${e.id}')" class="text-blue-600 text-xs hover:underline">+ Γρήγορη Προσθήκη</button>
+                    </div>
+                </div>
+            `).join('');
+            document.getElementById('exercisesList').innerHTML = html;
+        }
+
+        async function quickAddExercise(templateId) {
+            const template = appData.exerciseTemplates.find(e => e.id === templateId);
+            if (!template) return;
+            
+            const today = new Date().toISOString().split('T')[0];
+            const now = new Date().toTimeString().slice(0,5);
+            
+            const data = {
+                id: genId(),
+                date: today,
+                time: now,
+                type: template.type,
+                name: template.name,
+                duration: template.duration,
+                calories: template.calories,
+                intensity: template.intensity,
+                notes: ''
+            };
+            
+            try {
+                showLoading('Προσθήκη άσκησης...');
+                await apiCall('addExercise', { data });
+                appData.exercises.push(data);
+                hideLoading();
+                notify('✅ Άσκηση καταχωρήθηκε!', 'success');
+                loadDashboard();
+            } catch (e) {
+                hideLoading();
+                notify('❌ ' + e.message, 'error');
+            }
+        }
+
+        async function showAddExerciseTemplateModal() {
+            const modal = createModal('Νέο Template Άσκησης', `
+                <form id="addExTemplateForm" class="space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Όνομα Άσκησης</label>
+                        <input type="text" id="newExName" class="w-full border rounded px-3 py-2" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Τύπος</label>
+                        <select id="newExType" class="w-full border rounded px-3 py-2">
+                            <option>Cardio</option>
+                            <option>Strength</option>
+                            <option>HIIT</option>
+                            <option>Yoga</option>
+                            <option>Walking</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Προεπιλεγμένη Διάρκεια (λεπτά)</label>
+                        <input type="number" id="newExDur" class="w-full border rounded px-3 py-2" value="30">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Προεπιλεγμένες Θερμίδες</label>
+                        <input type="number" id="newExCal" class="w-full border rounded px-3 py-2" value="200">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Ένταση</label>
+                        <select id="newExInt" class="w-full border rounded px-3 py-2">
+                            <option>Low</option>
+                            <option>Medium</option>
+                            <option>High</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700">Προσθήκη Template</button>
+                </form>
+            `);
+            
+            document.getElementById('addExTemplateForm').onsubmit = (e) => {
+                e.preventDefault();
+                const data = {
+                    id: genId(),
+                    name: document.getElementById('newExName').value,
+                    type: document.getElementById('newExType').value,
+                    duration: parseFloat(document.getElementById('newExDur').value),
+                    calories: parseFloat(document.getElementById('newExCal').value),
+                    intensity: document.getElementById('newExInt').value
+                };
+                
+                appData.exerciseTemplates.push(data);
+                closeModal();
+                notify('✅ Template προστέθηκε!', 'success');
+                renderExercisesList();
+            };
+        }
+
+        function editFood(foodId) {
+            const food = appData.foods.find(f => f.id === foodId);
+            if (!food) return;
+
+            const modal = createModal('Επεξεργασία Τροφίμου', `
+                <form id="editFoodForm" class="space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Όνομα</label>
+                        <input type="text" id="editFoodName" value="${food.name}" class="w-full border rounded px-3 py-2" required>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Calories (per 100g)</label>
+                            <input type="number" id="editFoodCal" value="${food.calories}" class="w-full border rounded px-3 py-2" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Protein (g)</label>
+                            <input type="number" step="0.1" id="editFoodPro" value="${food.protein}" class="w-full border rounded px-3 py-2" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Carbs (g)</label>
+                            <input type="number" step="0.1" id="editFoodCarb" value="${food.carbs}" class="w-full border rounded px-3 py-2" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Fat (g)</label>
+                            <input type="number" step="0.1" id="editFoodFat" value="${food.fat}" class="w-full border rounded px-3 py-2" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Fiber (g)</label>
+                            <input type="number" step="0.1" id="editFoodFiber" value="${food.fiber || 0}" class="w-full border rounded px-3 py-2">
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="submit" class="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Ενημέρωση</button>
+                        <button type="button" onclick="closeModal()" class="flex-1 bg-gray-300 text-gray-700 py-2 rounded hover:bg-gray-400">Ακύρωση</button>
+                    </div>
+                </form>
+            `);
+
+            document.getElementById('editFoodForm').onsubmit = (e) => {
+                e.preventDefault();
+                food.name = document.getElementById('editFoodName').value;
+                food.calories = parseFloat(document.getElementById('editFoodCal').value);
+                food.protein = parseFloat(document.getElementById('editFoodPro').value);
+                food.carbs = parseFloat(document.getElementById('editFoodCarb').value);
+                food.fat = parseFloat(document.getElementById('editFoodFat').value);
+                food.fiber = parseFloat(document.getElementById('editFoodFiber').value) || 0;
+                
+                closeModal();
+                notify('✅ Τροφίμο ενημερώθηκε!', 'success');
+                renderFoodsList();
+            };
+        }
+
+        async function showAddFoodModal() {
+            const modal = createModal('Νέο Τροφίμο', `
+                <form id="addFoodForm" class="space-y-3">
+                    <input type="text" id="newFoodName" placeholder="Όνομα" class="w-full border rounded px-3 py-2" required>
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="number" id="newFoodCal" placeholder="Calories" class="border rounded px-3 py-2" required>
+                        <input type="number" step="0.1" id="newFoodPro" placeholder="Protein" class="border rounded px-3 py-2" required>
+                        <input type="number" step="0.1" id="newFoodCarb" placeholder="Carbs" class="border rounded px-3 py-2" required>
+                        <input type="number" step="0.1" id="newFoodFat" placeholder="Fat" class="border rounded px-3 py-2" required>
+                        <input type="number" step="0.1" id="newFoodFiber" placeholder="Fiber" class="border rounded px-3 py-2">
+                    </div>
+                    <div class="text-xs text-gray-500">Όλα ανά 100g</div>
+                    <button type="submit" class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700">Προσθήκη</button>
+                </form>
+            `);
+            
+            document.getElementById('addFoodForm').onsubmit = async (e) => {
+                e.preventDefault();
+                try {
+                    const data = {
+                        id: genId(),
+                        name: document.getElementById('newFoodName').value,
+                        calories: parseFloat(document.getElementById('newFoodCal').value),
+                        protein: parseFloat(document.getElementById('newFoodPro').value),
+                        carbs: parseFloat(document.getElementById('newFoodCarb').value),
+                        fat: parseFloat(document.getElementById('newFoodFat').value),
+                        fiber: parseFloat(document.getElementById('newFoodFiber').value) || 0,
+                        saturatedFat: 0
+                    };
+                    
+                    await apiCall('addFood', { data });
+                    appData.foods.push(data);
+                    closeModal();
+                    notify('✅ Τροφίμο προστέθηκε!', 'success');
+                    renderFoodsList();
+                    populateSelects();
+                } catch (e) {
+                    notify('❌ ' + e.message, 'error');
+                }
+            };
+        }
+
+        function editSupplement(suppId) {
+            const supp = appData.supplements.find(s => s.id === suppId);
+            if (!supp) return;
+
+            const modal = createModal('Επεξεργασία Συμπληρώματος', `
+                <form id="editSuppForm" class="space-y-3 max-h-[70vh] overflow-y-auto">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Όνομα</label>
+                        <input type="text" id="editSuppName" value="${supp.name}" class="w-full border rounded px-3 py-2" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Κατασκευαστής</label>
+                        <input type="text" id="editSuppManuf" value="${supp.manufacturer || ''}" class="w-full border rounded px-3 py-2">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Τιμή (€)</label>
+                        <input type="number" step="0.01" id="editSuppPrice" value="${supp.price || 0}" class="w-full border rounded px-3 py-2">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Τρέχον Απόθεμα (δόσεις)</label>
+                        <input type="number" id="editSuppStock" value="${supp.currentStock}" class="w-full border rounded px-3 py-2">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Θερμίδες/δόση</label>
+                        <input type="number" step="0.1" id="editSuppCal" value="${supp.caloriesPerDose || 0}" class="w-full border rounded px-3 py-2">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Πρωτεΐνη/δόση (g)</label>
+                        <input type="number" step="0.1" id="editSuppPro" value="${supp.proteinPerDose || 0}" class="w-full border rounded px-3 py-2">
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="submit" class="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Ενημέρωση</button>
+                        <button type="button" onclick="closeModal()" class="flex-1 bg-gray-300 text-gray-700 py-2 rounded hover:bg-gray-400">Ακύρωση</button>
+                    </div>
+                </form>
+            `);
+
+            document.getElementById('editSuppForm').onsubmit = (e) => {
+                e.preventDefault();
+                supp.name = document.getElementById('editSuppName').value;
+                supp.manufacturer = document.getElementById('editSuppManuf').value;
+                supp.price = parseFloat(document.getElementById('editSuppPrice').value) || 0;
+                supp.currentStock = parseFloat(document.getElementById('editSuppStock').value);
+                supp.caloriesPerDose = parseFloat(document.getElementById('editSuppCal').value) || 0;
+                supp.proteinPerDose = parseFloat(document.getElementById('editSuppPro').value) || 0;
+                
+                closeModal();
+                notify('✅ Συμπλήρωμα ενημερώθηκε!', 'success');
+                renderSuppsList();
+            };
+        }
+
+        async function showAddSuppModal() {
+            const modal = createModal('Νέο Συμπλήρωμα', `
+                <form id="addSuppForm" class="space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Όνομα Συμπληρώματος</label>
+                        <input type="text" id="newSuppName" class="w-full border rounded px-3 py-2" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Κατασκευαστής</label>
+                        <input type="text" id="newSuppManuf" class="w-full border rounded px-3 py-2">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Είδος</label>
+                        <select id="newSuppType" class="w-full border rounded px-3 py-2">
+                            <option>Caps</option>
+                            <option>Tablets</option>
+                            <option>Liquid</option>
+                            <option>Softgel</option>
+                            <option>Powder</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Ημερομηνία Αγοράς</label>
+                        <input type="date" id="newSuppPurchase" class="w-full border rounded px-3 py-2">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Κατάστημα</label>
+                        <input type="text" id="newSuppStore" class="w-full border rounded px-3 py-2">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Τιμή (€)</label>
+                        <input type="number" step="0.01" id="newSuppPrice" class="w-full border rounded px-3 py-2">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Συσκευασίες</label>
+                            <input type="number" id="newSuppQty" class="w-full border rounded px-3 py-2" value="1">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Δόσεις/Συσκευασία</label>
+                            <input type="number" id="newSuppServings" class="w-full border rounded px-3 py-2" value="30">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Best Before (Λήξη)</label>
+                        <input type="date" id="newSuppExpiry" class="w-full border rounded px-3 py-2">
+                    </div>
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" id="newSuppHasNutrition" onchange="document.getElementById('newSuppNutritionDiv').style.display = this.checked ? 'block' : 'none'">
+                        <span class="text-sm">Περιέχει Θερμίδες/Πρωτεΐνη</span>
+                    </label>
+                    <div id="newSuppNutritionDiv" style="display:none" class="space-y-2 pl-4 border-l-2 border-blue-200">
+                        <div>
+                            <label class="block text-xs font-medium mb-1">Θερμίδες/δόση (kcal)</label>
+                            <input type="number" step="0.1" id="newSuppCal" class="w-full border rounded px-3 py-2">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium mb-1">Πρωτεΐνη/δόση (g)</label>
+                            <input type="number" step="0.1" id="newSuppPro" class="w-full border rounded px-3 py-2">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700">Προσθήκη</button>
+                </form>
+            `);
+            
+            document.getElementById('addSuppForm').onsubmit = async (e) => {
+                e.preventDefault();
+                try {
+                    const hasNutrition = document.getElementById('newSuppHasNutrition').checked;
+                    const data = {
+                        id: genId(),
+                        name: document.getElementById('newSuppName').value,
+                        manufacturer: document.getElementById('newSuppManuf').value,
+                        type: document.getElementById('newSuppType').value,
+                        purchaseDate: document.getElementById('newSuppPurchase').value,
+                        store: document.getElementById('newSuppStore').value,
+                        price: parseFloat(document.getElementById('newSuppPrice').value) || 0,
+                        qtyPackages: parseFloat(document.getElementById('newSuppQty').value) || 1,
+                        servingSize: 1,
+                        servingsPerPackage: parseFloat(document.getElementById('newSuppServings').value) || 30,
+                        bestBefore: document.getElementById('newSuppExpiry').value,
+                        caloriesPerDose: hasNutrition ? parseFloat(document.getElementById('newSuppCal').value) || 0 : 0,
+                        proteinPerDose: hasNutrition ? parseFloat(document.getElementById('newSuppPro').value) || 0 : 0,
+                        purchasedBy: '',
+                        initialStock: 0,
+                        currentStock: 0
+                    };
+                    
+                    const result = await apiCall('addSupplement', { data });
+                    data.initialStock = result.initialStock;
+                    data.currentStock = result.initialStock;
+                    appData.supplements.push(data);
+                    closeModal();
+                    notify('✅ Συμπλήρωμα προστέθηκε!', 'success');
+                    renderSuppsList();
+                    populateSelects();
+                    checkSupplementAlerts();
+                } catch (e) {
+                    notify('❌ ' + e.message, 'error');
+                }
+            };
+        }
+
+        function loadUserSettings() {
+            const s = appData.userSettings;
+            if (!s || !s.gender) return;
+            
+            document.getElementById('setGender').value = s.gender;
+            document.getElementById('setAge').value = s.age;
+            document.getElementById('setHeight').value = s.height;
+            document.getElementById('setWeight').value = s.weight;
+            document.getElementById('setActivity').value = s.activity;
+            document.getElementById('setCalGoal').value = s.calorieGoal;
+            document.getElementById('setProMult').value = s.proteinMult;
+            document.getElementById('setNetCarb').value = s.netCarbLimit;
+        }
+
+        function calculateBMR() {
+            const gender = document.getElementById('setGender').value;
+            const age = parseFloat(document.getElementById('setAge').value);
+            const height = parseFloat(document.getElementById('setHeight').value);
+            const weight = parseFloat(document.getElementById('setWeight').value);
+            const activity = parseFloat(document.getElementById('setActivity').value);
+            const bodyFat = parseFloat(document.getElementById('setBodyFat').value);
+            
+            if (!age || !height || !weight || !activity) {
+                notify('⚠️ Συμπλήρωσε όλα τα πεδία (Ηλικία, Ύψος, Βάρος, Επίπεδο Δραστηριότητας)', 'warning');
+                return;
+            }
+            
+            let bmr;
+            let formula = 'Mifflin-St Jeor';
+            
+            // If body fat % is provided, use Katch-McArdle formula (more accurate)
+            if (bodyFat && bodyFat > 0 && bodyFat < 50) {
+                const leanMass = weight * (1 - bodyFat / 100);
+                bmr = 370 + (21.6 * leanMass);
+                formula = 'Katch-McArdle (με Body Fat %)';
+            } else {
+                // Use Mifflin-St Jeor formula
+                bmr = gender === 'Male' ? 
+                    10 * weight + 6.25 * height - 5 * age + 5 :
+                    10 * weight + 6.25 * height - 5 * age - 161;
+            }
+            
+            const tdee = bmr * activity;
+            
+            // Calculate scenarios
+            const maintenance = Math.round(tdee);
+            const cutting = Math.round(tdee - 500);
+            const bulking = Math.round(tdee + 500);
+            
+            // Display basic results
+            document.getElementById('calcBMR').textContent = Math.round(bmr) + ' kcal';
+            document.getElementById('calcTDEE').textContent = Math.round(tdee) + ' kcal';
+            document.getElementById('setCalGoal').value = Math.round(tdee);
+            
+            // Generate advanced results modal
+            showTDEEResults(bmr, tdee, maintenance, cutting, bulking, formula, bodyFat);
+            
+            notify('✅ Υπολογίστηκε! Δες τα αναλυτικά αποτελέσματα!', 'success');
+        }
+
+        function showTDEEResults(bmr, tdee, maintenance, cutting, bulking, formula, bodyFat) {
+            const maintenanceWeekly = maintenance * 7;
+            const cuttingWeekly = cutting * 7;
+            const bulkingWeekly = bulking * 7;
+            
+            // Calculate macros for each scenario and ratio
+            const scenarios = [
+                { name: 'MAINTENANCE', cal: maintenance, weekly: maintenanceWeekly, icon: '🎯' },
+                { name: 'CUTTING', cal: cutting, weekly: cuttingWeekly, icon: '📉' },
+                { name: 'BULKING', cal: bulking, weekly: bulkingWeekly, icon: '💪' }
+            ];
+            
+            const ratios = [
+                { name: 'Moderate Carbs', p: 30, c: 35, f: 35 },
+                { name: 'Low Carb', p: 40, c: 20, f: 40 },
+                { name: 'High Carb', p: 30, c: 20, f: 50 }
+            ];
+            
+            let html = `
+                <div class="space-y-4 max-h-[70vh] overflow-y-auto">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <h3 class="font-bold text-lg mb-2">📊 Βασικά Αποτελέσματα</h3>
+                        <div class="grid grid-cols-2 gap-3 text-sm">
+                            <div><span class="font-medium">Φόρμουλα:</span> ${formula}</div>
+                            ${bodyFat ? `<div><span class="font-medium">Body Fat:</span> ${bodyFat}%</div>` : ''}
+                            <div><span class="font-medium">BMR:</span> ${Math.round(bmr)} kcal</div>
+                            <div><span class="font-medium">TDEE:</span> ${Math.round(tdee)} kcal/ημέρα</div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                        <h3 class="font-bold text-lg mb-3">💡 ΣΥΜΒΟΥΛΕΥΤΙΚΑ ΣΧΕΔΙΑ ΔΙΑΤΡΟΦΗΣ</h3>
+                        <div class="text-xs text-gray-600 mb-3">
+                            * Οι υπολογισμοί βασίζονται σε: 4 kcal/g για Πρωτεΐνη & Υδατάνθρακες, 9 kcal/g για Λίπος<br>
+                            * Τα User Settings macros που επέλεξες θα χρησιμοποιούνται για τα alerts
+                        </div>
+            `;
+            
+            scenarios.forEach(scenario => {
+                html += `
+                    <div class="bg-white border-2 border-gray-300 rounded-lg p-3 mb-3">
+                        <h4 class="font-bold text-md mb-2">${scenario.icon} ${scenario.name}</h4>
+                        <div class="text-sm text-gray-600 mb-2">
+                            ${scenario.cal} kcal/ημέρα | ${scenario.weekly} kcal/εβδομάδα
+                        </div>
+                        <div class="space-y-2">
+                `;
+                
+                ratios.forEach(ratio => {
+                    const proteinG = Math.round((scenario.cal * ratio.p / 100) / 4);
+                    const carbsG = Math.round((scenario.cal * ratio.c / 100) / 4);
+                    const fatG = Math.round((scenario.cal * ratio.f / 100) / 9);
+                    
+                    html += `
+                        <div class="bg-gray-50 rounded p-2 text-xs cursor-pointer hover:bg-blue-100 transition" onclick="selectMacroRatio(${ratio.p}, ${ratio.c}, ${ratio.f}, '${ratio.name}')">
+                            <div class="font-medium mb-1">${ratio.name} (${ratio.p}/${ratio.c}/${ratio.f}) 👆 Click to Apply</div>
+                            <div class="text-gray-700">
+                                Protein: <span class="font-semibold text-green-600">${proteinG}g</span> | 
+                                Carbs: <span class="font-semibold text-orange-600">${carbsG}g</span> | 
+                                Fat: <span class="font-semibold text-purple-600">${fatG}g</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `
+                    </div>
+                    <button onclick="closeModal()" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
+                        Κλείσιμο
+                    </button>
+                </div>
+            `;
+            
+            createModal('🧮 TDEE Calculator - Αναλυτικά Αποτελέσματα', html);
+        }
+
+        function selectMacroRatio(proteinPct, carbsPct, fatPct, ratioName) {
+            document.getElementById('setProPct').value = proteinPct;
+            document.getElementById('setCarbPct').value = carbsPct;
+            document.getElementById('setFatPct').value = fatPct;
+            
+            // Calculate protein multiplier
+            const weight = parseFloat(document.getElementById('setWeight').value);
+            const calorieGoal = parseInt(document.getElementById('setCalories').value);
+            if (weight > 0 && calorieGoal > 0) {
+                const proteinG = Math.round((calorieGoal * proteinPct / 100) / 4);
+                const multiplier = (proteinG / weight).toFixed(2);
+                document.getElementById('displayProMult').textContent = multiplier;
+                localStorage.setItem('proteinMultiplier', multiplier);
+            }
+            
+            closeModal();
+            notify(`✅ Επιλέχθηκε: ${ratioName} (${proteinPct}/${carbsPct}/${fatPct})`, 'success');
+        }
+
+        async function submitSettings(e) {
+            e.preventDefault();
+            try {
+                const calories = parseFloat(document.getElementById('setCalGoal').value);
+                const carbPct = parseFloat(document.getElementById('setCarbPct').value) || 40;
+                const proPct = parseFloat(document.getElementById('setProPct').value) || 40;
+                const fatPct = parseFloat(document.getElementById('setFatPct').value) || 20;
+                const weight = parseFloat(document.getElementById('setWeight').value);
+                const proMult = parseFloat(document.getElementById('setProMult').value);
+                
+                const data = {
+                    userId: 1,
+                    gender: document.getElementById('setGender').value,
+                    height: parseFloat(document.getElementById('setHeight').value),
+                    age: parseFloat(document.getElementById('setAge').value),
+                    weight: weight,
+                    bmr: 0,
+                    activity: document.getElementById('setActivity').value,
+                    targetWeight: weight,
+                    calorieGoal: calories,
+                    carbGoal: Math.round((calories * carbPct / 100) / 4),
+                    netCarbLimit: parseFloat(document.getElementById('setNetCarb').value),
+                    proteinGoal: Math.round(weight * proMult),
+                    fatGoal: Math.round((calories * fatPct / 100) / 9),
+                    proteinMult: proMult
+                };
+                
+                showLoading('Αποθήκευση...');
+                await apiCall('updateUserSettings', { data });
+                appData.userSettings = data;
+                
+                goals = {
+                    calories: data.calorieGoal,
+                    protein: data.proteinGoal,
+                    carbsTotal: data.carbGoal,
+                    carbsNet: data.netCarbLimit,
+                    fat: data.fatGoal
+                };
+                
+                hideLoading();
+                notify('✅ Αποθηκεύτηκαν!', 'success');
+                loadDashboard();
+            } catch (e) {
+                hideLoading();
+                notify('❌ ' + e.message, 'error');
+            }
+        }
+
+        function saveScriptUrl() {
+            const url = document.getElementById('scriptUrl').value.trim();
+            if (!url) {
+                notify('❌ Βάλε URL', 'error');
+                return;
+            }
+            SCRIPT_URL = url;
+            localStorage.setItem('scriptUrl', url);
+            notify('✅ Αποθηκεύτηκε!', 'success');
+        }
+
+        async function testConnection() {
+            try {
+                const url = document.getElementById('scriptUrl').value.trim();
+                if (!url) {
+                    notify('❌ Βάλε URL πρώτα', 'error');
+                    return;
+                }
+                SCRIPT_URL = url;
+                document.getElementById('connStatus').innerHTML = '<span class="text-blue-600">Έλεγχος...</span>';
+                await apiCall('getUserSettings');
+                document.getElementById('connStatus').innerHTML = '<span class="text-green-600">✅ OK!</span>';
+                notify('✅ Σύνδεση επιτυχής!', 'success');
+            } catch (e) {
+                document.getElementById('connStatus').innerHTML = '<span class="text-red-600">❌ Σφάλμα</span>';
+                notify('❌ ' + e.message, 'error');
+            }
+        }
+
+        function toggleKeto() {
+            KETO_MODE = document.getElementById('ketoToggle').checked;
+            localStorage.setItem('ketoMode', KETO_MODE);
+            document.getElementById('ketoLabel').textContent = KETO_MODE ? 'ON (Keto)' : 'OFF (Normal)';
+            updateCarbsLabel();
+            loadDashboard();
+        }
+
+        function updateCarbsLabel() {
+            document.getElementById('labelCarbs').textContent = KETO_MODE ? 'Υδατάνθρακες (Net)' : 'Υδατάνθρακες';
+        }
+
+        function loadStats() {
+            const from = document.getElementById('statsFrom').value;
+            const to = document.getElementById('statsTo').value;
+            
+            const glucose = appData.metrics.filter(m => m.type === 'Glucose' && m.date >= from && m.date <= to);
+            const logs = appData.dailyLog.filter(l => l.date >= from && l.date <= to);
+            
+            if (glucose.length > 0) {
+                const avg = glucose.reduce((sum, m) => sum + m.value, 0) / glucose.length;
+                document.getElementById('avgGlucose').textContent = Math.round(avg);
+                document.getElementById('estHbA1c').textContent = ((avg + 46.7) / 28.7).toFixed(1);
+            }
+            
+            if (logs.length > 0) {
+                const days = new Set(logs.map(l => l.date)).size;
+                const total = logs.reduce((sum, l) => sum + (l.calories || 0), 0);
+                document.getElementById('avgCals').textContent = Math.round(total / days);
+            }
+            
+            notify('✅ Υπολογίστηκαν', 'success');
+        }
+
+        function showTab(name) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('tab-active'));
+            document.getElementById(`tab-${name}`).classList.remove('hidden');
+            document.querySelector(`[data-tab="${name}"]`).classList.add('tab-active');
+            
+            if (name === 'exercise') loadExerciseHistory();
+            if (name === 'metrics') loadMetricHistory();
+            if (name === 'supplements') loadSupplementsDashboard();
+            if (name === 'bloodtests') renderTestSessions();
+        }
+
+        function createModal(title, content) {
+            const modal = document.createElement('div');
+            modal.className = 'modal show';
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-bold">${title}</h3>
+                        <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                    </div>
+                    ${content}
+                </div>
+            `;
+            document.getElementById('modalContainer').appendChild(modal);
+            return modal;
+        }
+
+        function closeModal() {
+            document.getElementById('modalContainer').innerHTML = '';
+        }
+
+        function showLoading(msg) {
+            const div = document.createElement('div');
+            div.id = 'loading';
+            div.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+            div.innerHTML = `<div class="bg-white rounded-lg p-6"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div><p>${msg}</p></div>`;
+            document.body.appendChild(div);
+        }
+
+        function hideLoading() {
+            const l = document.getElementById('loading');
+            if (l) l.remove();
+        }
+
+        function notify(msg, type = 'info') {
+            const colors = {
+                success: 'bg-green-100 border-green-500 text-green-800',
+                error: 'bg-red-100 border-red-500 text-red-800',
+                info: 'bg-blue-100 border-blue-500 text-blue-800',
+                warning: 'bg-yellow-100 border-yellow-500 text-yellow-800'
+            };
+            const div = document.createElement('div');
+            div.className = `fixed top-4 right-4 ${colors[type]} border-l-4 p-4 rounded shadow-lg z-50 max-w-md`;
+            div.textContent = msg;
+            document.body.appendChild(div);
+            setTimeout(() => div.remove(), 4000);
+        }
+
+        function genId() {
+            return Math.random().toString(36).substring(2, 10);
+        }
+
+        // ============================================
+        // SUPPLEMENTS DASHBOARD FUNCTIONS
+        // ============================================
+
+        function loadSupplementsDashboard() {
+            const supps = appData.supplements || [];
+            const today = new Date();
+            
+            // Summary stats
+            document.getElementById('suppCount').textContent = supps.length;
+            document.getElementById('lowStockCount').textContent = supps.filter(s => s.currentStock > 0 && s.currentStock < 10).length;
+            document.getElementById('outStockCount').textContent = supps.filter(s => s.currentStock === 0).length;
+            
+            const expiringSoon = supps.filter(s => {
+                if (!s.bestBefore) return false;
+                const exp = new Date(s.bestBefore);
+                const days = Math.floor((exp - today) / (1000 * 60 * 60 * 24));
+                return days >= 0 && days < 30;
+            }).length;
+            document.getElementById('expiringCount').textContent = expiringSoon;
+            
+            // Supplements list
+            if (supps.length === 0) {
+                document.getElementById('suppDashboardList').innerHTML = '<p class="text-gray-500">Δεν υπάρχουν συμπληρώματα</p>';
+                return;
+            }
+            
+            const html = supps.map(s => {
+                const stockClass = s.currentStock === 0 ? 'text-red-600' : s.currentStock < 10 ? 'text-orange-600' : 'text-green-600';
+                const stockIcon = s.currentStock === 0 ? '🔴' : s.currentStock < 10 ? '🟡' : '🟢';
+                
+                let expiryInfo = '';
+                if (s.bestBefore) {
+                    const exp = new Date(s.bestBefore);
+                    const days = Math.floor((exp - today) / (1000 * 60 * 60 * 24));
+                    if (days < 0) {
+                        expiryInfo = '<span class="text-red-600 text-xs">⚠️ EXPIRED</span>';
+                    } else if (days < 15) {
+                        expiryInfo = `<span class="text-red-600 text-xs">⚠️ Λήγει σε ${days} μέρες</span>`;
+                    } else if (days < 30) {
+                        expiryInfo = `<span class="text-orange-600 text-xs">Λήγει σε ${days} μέρες</span>`;
+                    }
+                }
+                
+                return `
+                    <div class="border-l-4 ${s.currentStock === 0 ? 'border-red-500' : s.currentStock < 10 ? 'border-orange-500' : 'border-green-500'} bg-gray-50 rounded p-4 mb-3">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <div class="font-semibold text-lg">${s.name}</div>
+                                <div class="text-sm text-gray-600">${s.manufacturer || '-'} | ${s.type}</div>
+                                ${s.proteinPerDose > 0 ? `<div class="text-xs text-green-600 mt-1">Πρωτεΐνη: ${s.proteinPerDose}g/δόση</div>` : ''}
+                                ${s.caloriesPerDose > 0 ? `<div class="text-xs text-blue-600">Θερμίδες: ${s.caloriesPerDose} kcal/δόση</div>` : ''}
+                                ${expiryInfo}
+                            </div>
+                            <div class="text-right">
+                                <div class="${stockClass} font-bold text-2xl">${stockIcon} ${s.currentStock}</div>
+                                <div class="text-xs text-gray-500">δόσεις</div>
+                                ${s.price ? `<div class="text-xs text-gray-600 mt-1">€${s.price}</div>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('suppDashboardList').innerHTML = html;
+        }
+
+        // ============================================
+        // BLOOD TESTS FUNCTIONS
+        // ============================================
+
+        function renderTestSessions() {
+            const tests = appData.bloodTestHeaders || [];
+            document.getElementById('totalTests').textContent = tests.length;
+            
+            const allResults = appData.bloodTestResults || [];
+            document.getElementById('totalMarkers').textContent = allResults.length;
+            
+            if (tests.length === 0) {
+                document.getElementById('testSessionsList').innerHTML = '<p class="text-gray-500 text-sm">Δεν υπάρχουν εξετάσεις</p>';
+                return;
+            }
+            
+            const html = tests.sort((a, b) => new Date(b.testDate) - new Date(a.testDate)).map(test => {
+                const results = allResults.filter(r => r.testId === test.id);
+                const abnormalCount = results.filter(r => r.status === 'High' || r.status === 'Low').length;
+                
+                return `
+                    <div class="border rounded p-4 mb-3 hover:bg-gray-50 cursor-pointer" onclick="viewTestResults('${test.id}')">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="font-semibold">${test.labName}</div>
+                                <div class="text-sm text-gray-600">${test.testDate}</div>
+                                <div class="text-xs text-gray-500 mt-1">${results.length} markers</div>
+                            </div>
+                            <div class="text-right">
+                                ${abnormalCount > 0 ? `<span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded">${abnormalCount} abnormal</span>` : '<span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">✓ Normal</span>'}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('testSessionsList').innerHTML = html;
+        }
+
+        function viewTestResults(testId) {
+            const test = appData.bloodTestHeaders.find(t => t.id === testId);
+            const results = (appData.bloodTestResults || []).filter(r => r.testId === testId);
+            
+            document.getElementById('resultTestTitle').textContent = `${test.labName} - ${test.testDate}`;
+            
+            const tableHtml = `
+                <table class="w-full">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="text-left p-2 text-sm">Marker</th>
+                            <th class="text-right p-2 text-sm">Value</th>
+                            <th class="text-right p-2 text-sm">Reference Range</th>
+                            <th class="text-center p-2 text-sm">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${results.map(r => {
+                            const statusClass = r.status === 'Normal' ? 'bg-green-100 text-green-800' : r.status === 'High' ? 'bg-red-100 text-red-800' : r.status === 'Low' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800';
+                            const icon = r.status === 'Normal' ? '🟢' : r.status === 'High' ? '🔴' : r.status === 'Low' ? '🟡' : '⚪';
+                            return `
+                                <tr class="border-b">
+                                    <td class="p-2 text-sm font-medium">${r.markerName}</td>
+                                    <td class="p-2 text-sm text-right font-bold">${r.value} ${r.unit}</td>
+                                    <td class="p-2 text-sm text-right text-gray-600">${r.refRangeLow || '-'} - ${r.refRangeHigh || '-'} ${r.unit}</td>
+                                    <td class="p-2 text-center"><span class="${statusClass} text-xs px-2 py-1 rounded">${icon} ${r.status}</span></td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+            
+            document.getElementById('resultMarkersTable').innerHTML = tableHtml;
+            document.getElementById('testResultsView').classList.remove('hidden');
+            document.getElementById('testSessionsList').parentElement.classList.add('hidden');
+        }
+
+        function closeTestResults() {
+            document.getElementById('testResultsView').classList.add('hidden');
+            document.getElementById('testSessionsList').parentElement.classList.remove('hidden');
+        }
+
+        function showAddTestModal() {
+            const modal = createModal('Νέα Αιματολογική Εξέταση', `
+                <form id="addTestForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Εργαστήριο</label>
+                        <input type="text" id="newTestLab" class="w-full border rounded px-3 py-2" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Ημερομηνία Εξέτασης</label>
+                        <input type="date" id="newTestDate" class="w-full border rounded px-3 py-2" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Σημειώσεις</label>
+                        <textarea id="newTestNotes" class="w-full border rounded px-3 py-2" rows="2"></textarea>
+                    </div>
+                    <button type="submit" class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700">Προσθήκη Εξέτασης</button>
+                </form>
+            `);
+            
+            document.getElementById('addTestForm').onsubmit = async (e) => {
+                e.preventDefault();
+                const data = {
+                    id: genId(),
+                    labName: document.getElementById('newTestLab').value,
+                    testDate: document.getElementById('newTestDate').value,
+                    notes: document.getElementById('newTestNotes').value
+                };
+                
+                try {
+                    await apiCall('addBloodTestHeader', { data });
+                    appData.bloodTestHeaders = appData.bloodTestHeaders || [];
+                    appData.bloodTestHeaders.push(data);
+                    closeModal();
+                    notify('✅ Εξέταση προστέθηκε! Τώρα πρόσθεσε τα αποτελέσματα.', 'success');
+                    renderTestSessions();
+                    showAddResultsModal(data.id);
+                } catch (e) {
+                    notify('❌ ' + e.message, 'error');
+                }
+            };
+        }
+
+        function showAddResultsModal(testId) {
+            const modal = createModal('Προσθήκη Αποτελεσμάτων', `
+                <div id="resultsFormContainer">
+                    <div class="mb-4">
+                        <button onclick="addMarkerField()" type="button" class="bg-blue-600 text-white px-3 py-1 rounded text-sm">+ Προσθήκη Marker</button>
+                    </div>
+                    <form id="addResultsForm" class="space-y-3">
+                        <div id="markersContainer"></div>
+                        <button type="submit" class="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700">Αποθήκευση Όλων</button>
+                    </form>
+                </div>
+            `);
+            
+            addMarkerField();
+            
+            document.getElementById('addResultsForm').onsubmit = async (e) => {
+                e.preventDefault();
+                const markers = [];
+                const container = document.getElementById('markersContainer');
+                const markerDivs = container.querySelectorAll('.marker-field');
+                
+                markerDivs.forEach(div => {
+                    const marker = {
+                        id: genId(),
+                        testId: testId,
+                        markerName: div.querySelector('.marker-name').value,
+                        value: parseFloat(div.querySelector('.marker-value').value),
+                        unit: div.querySelector('.marker-unit').value,
+                        refRangeLow: parseFloat(div.querySelector('.marker-ref-low').value) || null,
+                        refRangeHigh: parseFloat(div.querySelector('.marker-ref-high').value) || null
+                    };
+                    
+                    if (marker.refRangeLow && marker.refRangeHigh) {
+                        if (marker.value < marker.refRangeLow) marker.status = 'Low';
+                        else if (marker.value > marker.refRangeHigh) marker.status = 'High';
+                        else marker.status = 'Normal';
+                    } else {
+                        marker.status = 'Unknown';
+                    }
+                    
+                    markers.push(marker);
+                });
+                
+                try {
+                    for (const marker of markers) {
+                        await apiCall('addBloodTestResult', { data: marker });
+                    }
+                    appData.bloodTestResults = appData.bloodTestResults || [];
+                    appData.bloodTestResults.push(...markers);
+                    closeModal();
+                    notify(`✅ ${markers.length} markers αποθηκεύτηκαν!`, 'success');
+                    renderTestSessions();
+                } catch (e) {
+                    notify('❌ ' + e.message, 'error');
+                }
+            };
+        }
+
+        function addMarkerField() {
+            const container = document.getElementById('markersContainer');
+            const fieldHtml = `
+                <div class="marker-field border rounded p-3 bg-gray-50">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" class="marker-name border rounded px-2 py-1 text-sm" placeholder="Marker (e.g., Glucose)" required>
+                        <input type="number" step="0.01" class="marker-value border rounded px-2 py-1 text-sm" placeholder="Value" required>
+                        <input type="text" class="marker-unit border rounded px-2 py-1 text-sm" placeholder="Unit (e.g., mg/dL)" required>
+                        <div class="col-span-2 grid grid-cols-2 gap-2">
+                            <input type="number" step="0.01" class="marker-ref-low border rounded px-2 py-1 text-sm" placeholder="Ref Low">
+                            <input type="number" step="0.01" class="marker-ref-high border rounded px-2 py-1 text-sm" placeholder="Ref High">
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', fieldHtml);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
